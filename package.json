@@ -5,14 +5,13 @@
   "main": "build/cjs/src/index.js",
   "module": "build/esm/src/index.js",
   "types": "build/types/index.d.ts",
-  "bin": "run",
   "scripts": {
     "build": "rm -rf build && rollup --config",
     "test": "jest --runInBand",
     "prepublishOnly": "npm run build"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Lawrence Bethlenfalvy <lbfalvy@protonmail.com",
+  "license": "MIT",
   "dependencies": {
     "isomorphic-git": "^1.24.1"
   },
