@@ -1,5 +1,5 @@
 {
-  "name": "git-publish",
+  "name": "git-host-publish",
   "version": "1.0.0",
   "description": "Publish your generated website to Github Pages or other git-based destinations instantly and with ease",
   "main": "build/cjs/src/index.js",
