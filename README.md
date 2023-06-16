@@ -1,0 +1,1 @@
+Publish your generated website to Github Pages or other git-based destinations instantly and with ease. See [lbfalvy/annaja-personal-output](https://github.com/lbfalvy/annaja-personal-output) for an example.
