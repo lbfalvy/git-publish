@@ -1,5 +1,6 @@
 import ts from 'rollup-plugin-ts'
 import dts from 'rollup-plugin-dts'
+import nodeResolve from 'rollup-plugin-node-resolve'
 import { dirname } from 'path'
 import fs from 'fs/promises'
 
@@ -11,17 +12,19 @@ const baseConfig = {
 export default [{
   ...baseConfig,
   output: [{
-    dir: dirname(dirname(pkg.main)),
+    dir: dirname(pkg.main),
     format: 'cjs',
     sourcemap: 'inline',
     preserveModules: true,
   }, {
-    dir: dirname(dirname(pkg.module)),
+    dir: dirname(pkg.module),
     format: 'esm',
     sourcemap: 'inline',
     preserveModules: true,
   }],
-  plugins: [ts()],
+  plugins: [
+    ts()
+  ],
 }, {
   ...baseConfig,
   output: {

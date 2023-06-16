@@ -3,8 +3,9 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
+    "noEmitHelpers": true,
     "moduleResolution": "node",
-    "downlevelIteration": true,
+    "target": "ES2020",
     "lib": [
       "es2018",
       "ScriptHost"
