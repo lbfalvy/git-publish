@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "moduleResolution": "node",
+    "downlevelIteration": true,
+    "lib": [
+      "es2018",
+      "ScriptHost"
+    ],
+  },
+  "exclude": [
+    "jest.config.ts"
+  ]
+}
