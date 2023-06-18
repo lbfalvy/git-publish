@@ -6,9 +6,15 @@ import {
   add, branch, CallbackFsClient, checkout, commit, currentBranch,
   GitAuth, HttpClient, listBranches, listFiles, PromiseFsClient, push, remove
 } from "isomorphic-git";
+import { Stats } from "fs";
+
+interface Path {
+  join: (...argv: string[]) => string;
+}
 
 interface PublishOpts {
-  fs: CallbackFsClient | PromiseFsClient;
+  fs: PromiseFsClient;
+  path: Path;
   http?: HttpClient;
   targetBranch: string;
   generate: () => Promise<void>;
@@ -17,6 +23,25 @@ interface PublishOpts {
   onAuth?: (url: string, auth: GitAuth) => void | GitAuth | Promise<void | GitAuth>;
   commitMessage?: string;
   remote?: string;
+}
+
+async function visitAllFiles(
+  fs: PromiseFsClient,
+  path: Path,
+  filepath: string,
+  cb: (filepath: string) => void | Promise<void>
+): Promise<void> {
+  const fsp = fs.promises;
+  const stats: Stats = await fsp.stat(filepath);
+  if (stats.isDirectory()) {
+    const items: string[] = await fsp.readdir(filepath);
+    const tasks = items
+        .filter(n => n != ".git")
+        .map(item => visitAllFiles(fs, path, path.join(filepath, item), cb))
+    await Promise.all(tasks);
+  } else {
+    await cb(filepath);
+  }
 }
 
 /** Publish a folder to another branch
@@ -33,14 +58,19 @@ interface PublishOpts {
  */
 export async function publish(opts: PublishOpts) {
   // mandatory parameters
-  const { fs, http, dir, targetBranch, onAuth, pubpath, generate } = opts;
+  const { fs, path, http, dir, targetBranch, onAuth, pubpath, generate } = opts;
   // default parameters
   const remote = opts.remote ?? "origin";
   const commitMessage = opts.commitMessage ?? `Published`;
+  const targetRef = `refs/heads/${targetBranch}`;
   // shared parameters across all git commands
   const cfg = { fs, dir, remote };
   // remember the branch we are publishing from
   const sourceBranch = await currentBranch(cfg);
+  const sourceRef = `refs/heads/${sourceBranch}`;
+  const isTarget = Array.isArray(pubpath)
+    ? (filepath: string) => pubpath.some(p => filepath.startsWith(p))
+    : (filepath: string) => filepath.startsWith(pubpath);
 
   // ensure that the repository is in a sensible state
   if (sourceBranch === undefined) throw new Error("Cannot publish with detached HEAD!");
@@ -52,8 +82,8 @@ export async function publish(opts: PublishOpts) {
 
   try {
     // create and switch to target branch without touching the working directory
-    if (!exists) await branch({ ...cfg, ref: targetBranch, force: true, checkout: false });
-    await checkout({ ...cfg, ref: targetBranch, noCheckout: true });
+    if (!exists) await branch({ ...cfg, ref: targetRef, force: true, checkout: false });
+    await checkout({ ...cfg, ref: targetRef, noCheckout: true });
     // the working directory still reflects the state this function was called in
 
     // generate published files
@@ -61,23 +91,30 @@ export async function publish(opts: PublishOpts) {
     // Commit only and exactly the published files. Due to some strange behaviour on
     // orphan commits, files we don't care about need to be explicitly removed.
     for (const item of await listFiles(cfg)) await remove({ ...cfg, filepath: item });
-    await add({ ...cfg, filepath: pubpath, force: true });
+    const pubFiles: string[] = [];
+    await visitAllFiles(fs, path, dir, filepath => {
+      if (!filepath.startsWith(dir)) throw new Error("Assertion failure")
+      const relPath = filepath.slice(dir.length)
+      console.log(relPath)
+      if (isTarget(relPath)) pubFiles.push(relPath);
+    })
+    await add({ ...cfg, filepath: pubFiles, force: true });
     await commit({
       ...cfg,
-      ref: targetBranch,
+      ref: targetRef,
       message: commitMessage,
       parent: [] // orphan commit
     });
     if (http !== undefined && onAuth !== undefined) await push({
       ...cfg,
       http, 
-      ref: targetBranch,
-      remoteRef: `refs/heads/${targetBranch}`,
+      ref: targetRef,
+      remoteRef: targetRef,
       force: true,
       onAuth
     });
   } finally {
     // move back to source branch even in case of an error
-    await checkout({ ...cfg, ref: sourceBranch, force: true })
+    await checkout({ ...cfg, ref: sourceRef, force: true })
   }
 }

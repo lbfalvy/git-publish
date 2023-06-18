@@ -18,6 +18,8 @@ beforeEach(async () => {
   await git.commit({ ...cfg, message: "initial commit" });
 });
 
+afterAll(() => fs.rm(dir, { recursive: true }));
+
 test("correctly detects a clean repository", async () => {
   expect(await isClean(cfg)).toBe(true);
 });
