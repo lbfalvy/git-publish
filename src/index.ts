@@ -94,8 +94,7 @@ export async function publish(opts: PublishOpts) {
     const pubFiles: string[] = [];
     await visitAllFiles(fs, path, dir, filepath => {
       if (!filepath.startsWith(dir)) throw new Error("Assertion failure")
-      const relPath = filepath.slice(dir.length)
-      console.log(relPath)
+      const relPath = filepath.slice(dir.length);
       if (isTarget(relPath)) pubFiles.push(relPath);
     })
     await add({ ...cfg, filepath: pubFiles, force: true });
