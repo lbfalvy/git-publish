@@ -3,13 +3,14 @@ import { isClean } from "./isClean";
 // This would be much more readable as a named import, but isogit is huge so tree-shaking is needed
 // whenever possible
 import {
-  add, branch, CallbackFsClient, checkout, commit, currentBranch,
+  add, branch, checkout, commit, currentBranch,
   GitAuth, HttpClient, listBranches, listFiles, PromiseFsClient, push, remove
 } from "isomorphic-git";
 import { Stats } from "fs";
 
 interface Path {
-  join: (...argv: string[]) => string;
+  relative: (from: string, to: string) => string;
+  resolve: (...argv: string[]) => string;
 }
 
 interface PublishOpts {
@@ -37,7 +38,7 @@ async function visitAllFiles(
     const items: string[] = await fsp.readdir(filepath);
     const tasks = items
         .filter(n => n != ".git")
-        .map(item => visitAllFiles(fs, path, path.join(filepath, item), cb))
+        .map(item => visitAllFiles(fs, path, path.resolve(filepath, item), cb))
     await Promise.all(tasks);
   } else {
     await cb(filepath);
@@ -68,9 +69,10 @@ export async function publish(opts: PublishOpts) {
   // remember the branch we are publishing from
   const sourceBranch = await currentBranch(cfg);
   const sourceRef = `refs/heads/${sourceBranch}`;
-  const isTarget = Array.isArray(pubpath)
-    ? (filepath: string) => pubpath.some(p => filepath.startsWith(p))
-    : (filepath: string) => filepath.startsWith(pubpath);
+  // normalize pubpath into a sequence of absolute paths
+  const pubpathsAbs = Array.isArray(pubpath)
+    ? pubpath.map(p => path.resolve(dir, p))
+    : [path.resolve(dir, pubpath)];
 
   // ensure that the repository is in a sensible state
   if (sourceBranch === undefined) throw new Error("Cannot publish with detached HEAD!");
@@ -93,9 +95,10 @@ export async function publish(opts: PublishOpts) {
     for (const item of await listFiles(cfg)) await remove({ ...cfg, filepath: item });
     const pubFiles: string[] = [];
     await visitAllFiles(fs, path, dir, filepath => {
-      if (!filepath.startsWith(dir)) throw new Error("Assertion failure")
-      const relPath = filepath.slice(dir.length);
-      if (isTarget(relPath)) pubFiles.push(relPath);
+      if (!filepath.startsWith(dir)) throw new Error("Assertion failure");
+      if (pubpathsAbs.some(p => filepath.startsWith(p))) {
+        pubFiles.push(path.relative(dir, filepath));
+      }
     })
     await add({ ...cfg, filepath: pubFiles, force: true });
     await commit({
